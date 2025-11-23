@@ -1,0 +1,5 @@
+{
+  "name": "Gerador Inteligente de Horários Escolares",
+  "description": "Um aplicativo para gerar horários de aulas sem conflitos utilizando IA, permitindo cadastro de turmas, professores e disciplinas.",
+  "requestFramePermissions": []
+}

@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DIRECTOR
+  COORDINATOR
+  TEACHER
+}
+
+enum Shift {
+  MORNING
+  AFTERNOON
+  NIGHT
+}
+
+enum Segment {
+  INFANTIL
+  ANOS_INICIAIS
+  ANOS_FINAIS
+  MEDIO
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+}
+
+model School {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  classes   Class[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  schoolId  String?
+  school    School?  @relation(fields: [schoolId], references: [id])
+  teacher   Teacher?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Teacher {
+  id             String                @id @default(uuid())
+  userId         String                @unique
+  user           User                  @relation(fields: [userId], references: [id])
+  qualifications String?
+  subjects       Subject[]
+  availability   TeacherAvailability[]
+  classSubjects  ClassSubject[]
+  schedules      Schedule[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model Subject {
+  id            String         @id @default(uuid())
+  name          String
+  code          String?
+  color         String
+  description   String?
+  teachers      Teacher[]
+  classSubjects ClassSubject[]
+  schedules     Schedule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Class {
+  id           String         @id @default(uuid())
+  name         String
+  shift        Shift
+  segment      Segment
+  dailyLessons Int            @default(5)
+  schoolId     String
+  school       School         @relation(fields: [schoolId], references: [id])
+  subjects     ClassSubject[]
+  schedules    Schedule[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model ClassSubject {
+  id             String   @id @default(uuid())
+  classId        String
+  class          Class    @relation(fields: [classId], references: [id])
+  subjectId      String
+  subject        Subject  @relation(fields: [subjectId], references: [id])
+  teacherId      String?
+  teacher        Teacher? @relation(fields: [teacherId], references: [id])
+  lessonsPerWeek Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model TeacherAvailability {
+  id        String    @id @default(uuid())
+  teacherId String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  day       DayOfWeek
+  shift     Shift
+  isAvailable Boolean @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([teacherId, day, shift])
+}
+
+model Schedule {
+  id        String    @id @default(uuid())
+  classId   String
+  class     Class     @relation(fields: [classId], references: [id])
+  subjectId String
+  subject   Subject   @relation(fields: [subjectId], references: [id])
+  teacherId String
+  teacher   Teacher   @relation(fields: [teacherId], references: [id])
+  day       DayOfWeek
+  timeSlot  Int       // 1 to dailyLessons
+  room      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([classId, day, timeSlot])
+  @@unique([teacherId, day, timeSlot]) // Prevent double booking for teachers
+}
