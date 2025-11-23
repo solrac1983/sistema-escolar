@@ -12,8 +12,16 @@ NC='\033[0m'
 echo -e "${GREEN}=== School Management System Installer ===${NC}"
 
 # 1. Gather Information
-read -p "Enter your domain name (e.g., escola.com.br): " DOMAIN
-read -p "Enter your email for SSL certificate: " EMAIL
+DOMAIN=$1
+EMAIL=$2
+
+if [ -z "$DOMAIN" ]; then
+    read -p "Enter your domain name (e.g., escola.com.br): " DOMAIN
+fi
+
+if [ -z "$EMAIL" ]; then
+    read -p "Enter your email for SSL certificate: " EMAIL
+fi
 
 if [ -z "$DOMAIN" ] || [ -z "$EMAIL" ]; then
     echo "Error: Domain and Email are required."
