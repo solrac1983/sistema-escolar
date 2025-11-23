@@ -3,7 +3,12 @@ const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 
 const app = express();
-const prisma = new PrismaClient();
+let prisma;
+try {
+    prisma = new PrismaClient();
+} catch (e) {
+    console.warn('Failed to initialize PrismaClient. DB features may not work.', e.message);
+}
 const PORT = process.env.PORT || 3000;
 
 // Serve static files from the public directory (frontend build)

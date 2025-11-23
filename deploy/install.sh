@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # School Management System - Auto Installer
-# Usage: curl -sL https://raw.githubusercontent.com/solrac1983/sistema-escolar/main/deploy/install.sh | sudo bash
+# Usage: curl -sL https://raw.githubusercontent.com/solrac1983/sistema-escolar/main/deploy/install.sh | sudo bash -s -- <DOMAIN> <EMAIL>
 
 set -e
 
@@ -30,57 +30,59 @@ fi
 
 echo -e "${GREEN}--- Updating System ---${NC}"
 apt update && apt upgrade -y
+apt install -y curl gnupg git nginx certbot python3-certbot-nginx build-essential
 
-echo -e "${GREEN}--- Installing Dependencies ---${NC}"
-# Node.js 18
+echo -e "${GREEN}--- Installing Node.js 18 ---${NC}"
 curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt install -y nodejs nginx git certbot python3-certbot-nginx
+apt install -y nodejs
 
-# PM2
+echo -e "${GREEN}--- Installing PM2 ---${NC}"
 npm install -g pm2
 
 echo -e "${GREEN}--- Setting up Application ---${NC}"
 APP_DIR="/var/www/sistema-escolar"
 
+# Remove existing directory if it exists to ensure fresh install
 if [ -d "$APP_DIR" ]; then
-    echo "Directory exists. Pulling latest changes..."
-    cd $APP_DIR
-    git pull origin main
-else
-    echo "Cloning repository..."
-    git clone https://github.com/solrac1983/sistema-escolar.git $APP_DIR
-    cd $APP_DIR
+    echo "Removing existing directory for fresh install..."
+    rm -rf "$APP_DIR"
 fi
+
+echo "Cloning repository..."
+git clone https://github.com/solrac1983/sistema-escolar.git $APP_DIR
+cd $APP_DIR
 
 echo -e "${GREEN}--- Installing & Building ---${NC}"
 npm install
-npm run build
 npx prisma generate
+npm run build
 
-# Create .env if not exists (Basic setup)
-if [ ! -f .env ]; then
-    echo "Creating default .env..."
-    echo "DATABASE_URL=\"file:./dev.db\"" > .env # Default to SQLite for ease, or prompt? User likely needs Postgres.
-    echo "JWT_SECRET=\"$(openssl rand -hex 32)\"" >> .env
-    echo "PORT=3000" >> .env
-    echo "VITE_API_URL=\"https://$DOMAIN/api\"" >> .env
-    echo "Warning: Using default SQLite/Env settings. Please configure .env for production DB."
-fi
+# Create .env
+echo "Creating .env file..."
+cat > .env <<EOF
+DATABASE_URL="file:./dev.db"
+JWT_SECRET="$(openssl rand -hex 32)"
+PORT=3000
+VITE_API_URL="https://$DOMAIN/api"
+EOF
 
 echo -e "${GREEN}--- Starting Backend ---${NC}"
 pm2 delete sistema-escolar 2>/dev/null || true
 pm2 start server.js --name "sistema-escolar"
 pm2 save
-pm2 startup | bash || true # Silently try to startup
+pm2 startup | bash || true
 
 echo -e "${GREEN}--- Configuring Nginx ---${NC}"
+# Remove default config to avoid "Welcome to nginx"
+rm -f /etc/nginx/sites-enabled/default
+
 cat > /etc/nginx/sites-available/sistema-escolar <<EOF
 server {
     listen 80;
     server_name $DOMAIN;
 
     location / {
-        root $APP_DIR/app/frontend/dist; # Adjusted path based on structure
+        root $APP_DIR/app/frontend/dist;
         index index.html;
         try_files \$uri \$uri/ /index.html;
     }
@@ -97,7 +99,6 @@ server {
 EOF
 
 ln -sf /etc/nginx/sites-available/sistema-escolar /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
 nginx -t
 service nginx restart
 
